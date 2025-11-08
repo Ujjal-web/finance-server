@@ -1,8 +1,11 @@
 const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion } = require('mongodb');
+const admin = require("firebase-admin");
 
 require("dotenv").config()
+
+const serviceAccount = require("./serviceKey.json");
 
 const app = express();
 const port = 5000;
@@ -11,7 +14,9 @@ const port = 5000;
 app.use(cors());
 app.use(express.json());
 
-
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+});
 
 const uri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.iyiq1ye.mongodb.net/?appName=Cluster0`;
 
@@ -24,6 +29,23 @@ const client = new MongoClient(uri, {
         deprecationErrors: true,
     }
 });
+
+const verifyToken = async (req, res, next) => {
+    const authorization = req.headers.authorization;
+
+    if (!authorization) {
+        return res.status(401).send({ message: "Unauthorized: Token not found!" });
+    }
+
+    const token = authorization.split(" ")[1];
+    try {
+        await admin.auth().verifyIdToken(token);
+        next(); // Allow access to protected route
+    } catch (error) {
+        console.error("Token verification failed:", error.message);
+        return res.status(401).send({ message: "Unauthorized: Invalid token." });
+    }
+};
 
 async function run() {
     try {
