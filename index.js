@@ -81,6 +81,21 @@ async function run() {
             });
         });
 
+        app.delete("/transactions/:id", async (req, res) => {
+            const { id } = req.params;
+            const result = await transactionsCollection.deleteOne({ _id: new ObjectId(id) });
+            res.send(result);
+        });
+
+        app.put("/transactions/:id", async (req, res) => {
+            const { id } = req.params;
+            const updatedData = req.body;
+            const filter = { _id: new ObjectId(id) };
+            const updateDoc = { $set: updatedData };
+            const result = await transactionsCollection.updateOne(filter, updateDoc);
+            res.send(result);
+        });
+
         await client.db("admin").command({ ping: 1 });
         console.log("MongoDB Connected Successfully!");
     } finally {
