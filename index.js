@@ -81,6 +81,16 @@ async function run() {
             });
         });
 
+        app.get("/transactions/:id", async (req, res) => {
+            const { id } = req.params;
+            const txn = await transactionsCollection.findOne({ _id: new ObjectId(id) });
+            if (!txn) {
+                return res.status(404).send({ success: false, message: "Not found" });
+            }
+            res.send({ success: true, transaction: txn });
+        });
+
+
         app.delete("/transactions/:id", async (req, res) => {
             const { id } = req.params;
             const result = await transactionsCollection.deleteOne({ _id: new ObjectId(id) });
