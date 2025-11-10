@@ -82,12 +82,77 @@ async function run() {
         });
 
         app.get("/transactions/:id", async (req, res) => {
-            const { id } = req.params;
-            const txn = await transactionsCollection.findOne({ _id: new ObjectId(id) });
-            if (!txn) {
-                return res.status(404).send({ success: false, message: "Not found" });
+            try {
+                const { id } = req.params;
+                const transaction = await transactionsCollection.findOne({ _id: new ObjectId(id) });
+
+                if (!transaction) {
+                    return res.status(404).send({ success: false, message: "Transaction not found" });
+                }
+
+                // Calculate total of same category for same user and type
+                const totalCategoryAmount = await transactionsCollection
+                    .aggregate([
+                        {
+                            $match: {
+                                userEmail: transaction.userEmail,
+                                category: transaction.category,
+                                type: transaction.type,
+                            },
+                        },
+                        {
+                            $group: {
+                                _id: null,
+                                total: { $sum: { $toDouble: "$amount" } },
+                            },
+                        },
+                    ])
+                    .toArray();
+
+                const totalAmount = totalCategoryAmount[0]?.total || 0;
+
+                res.send({
+                    success: true,
+                    transaction,
+                    totalAmount,
+                });
+            } catch (error) {
+                res.status(500).send({ success: false, message: "Error fetching transaction" });
             }
-            res.send({ success: true, transaction: txn });
+        });
+
+        app.get("/summary", async (req, res) => {
+            const email = req.query.email;
+            if (!email) {
+                return res.status(400).send({ success: false, message: "Email is required" });
+            }
+
+            try {
+                const transactions = await transactionsCollection.find({ userEmail: email }).toArray();
+
+                const income = transactions
+                    .filter((t) => t.type === "Income")
+                    .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+
+                const expense = transactions
+                    .filter((t) => t.type === "Expense")
+                    .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+
+                const balance = income - expense;
+
+                res.send({
+                    success: true,
+                    summary: {
+                        income,
+                        expense,
+                        balance,
+                        count: transactions.length,
+                    },
+                });
+            } catch (error) {
+                console.error("Error fetching summary:", error);
+                res.status(500).send({ success: false, message: "Server error" });
+            }
         });
 
 
