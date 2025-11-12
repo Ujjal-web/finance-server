@@ -4,7 +4,10 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const admin = require("firebase-admin");
 require("dotenv").config();
 
-const serviceAccount = require("./serviceKey.json");
+const decoded = Buffer.from(process.env.FIREBASE_KEY, "base64").toString("utf8");
+const serviceAccount = JSON.parse(decoded);
+
+// const serviceAccount = require("./serviceKey.json");
 
 const app = express();
 const port = 5000;
@@ -45,7 +48,7 @@ const verifyToken = async (req, res, next) => {
 
 async function run() {
     try {
-        await client.connect();
+        // await client.connect();
         const db = client.db("finEaseDB");
         const transactionsCollection = db.collection("transactions");
 
@@ -171,7 +174,7 @@ async function run() {
             res.send(result);
         });
 
-        await client.db("admin").command({ ping: 1 });
+        // await client.db("admin").command({ ping: 1 });
         console.log("MongoDB Connected Successfully!");
     } finally {
 
@@ -188,6 +191,8 @@ app.get("/secure", verifyToken, (req, res) => {
 });
 
 
-app.listen(port, () => {
-    console.log(`FinEase Server running on http://localhost:${port}`);
-});
+if (process.env.NODE_ENV !== "production") {
+    app.listen(port, () => console.log(`Server running locally on port ${port}`));
+} else {
+    module.exports = app;
+}
